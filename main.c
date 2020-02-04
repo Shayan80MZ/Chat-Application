@@ -2,196 +2,543 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <winsock2.h>
+#include <dir.h>
+#include <process.h>
 #include "cJSON.c"
 #include <string.h>
-#include <windows.h>
-#include <conio.h>
+#include <time.h>
 #define MAX 80
 #define PORT 12345
 #define SA struct sockaddr
 
-void sendreq( char req[] , char reqtype[] , char reqtoken[] );
-void account_menu ();
-void main_menu();
-void chat_menu();
-
-
-char reqtoken[2000];
-char username[100];
-char password[100];
-char req[1000];
-char reqtype[100];
-char channel_name[100];
-char sendreqtoken[1000];
-char message[1000];
-int set_color;
-
-/*void chat(int server_socket)
+char req[3000];
+char* res;
+int i=-1;
+previous_arraaynum=0;
+struct users_struct
 {
-	char buffer[MAX];
-	int n;
-	while (true) {
-		memset(buffer, 0, sizeof(buffer));
-		printf("Enter your message: ");
-		n = 0;
-
-		// Copy client message to the buffer
-		while ((buffer[n++] = getchar()) != '\n')
-			;
-
-		// Send the buffer to server
-		send(server_socket, buffer, sizeof(buffer), 0);
-		memset(buffer, 0, sizeof(buffer));
-
-		// Read the message from server and copy it to buffer
-		recv(server_socket, buffer, sizeof(buffer), 0);
-
-		// Print buffer which contains the server message
-		printf("From server: %s", buffer);
-
-		// If the message starts with "exit" then client exits and chat ends
-		if ((strncmp(buffer, "exit", 4)) == 0) {
-			printf("Client stopping...\n");
-			return;
-		}
-	}
-}*/
-
-void SetColor(int ForgC)
-{
-     WORD wColor;
-     //This handle is needed to get the current background attribute
-
-     HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-     CONSOLE_SCREEN_BUFFER_INFO csbi;
-     //csbi is used for wAttributes word
-
-     if(GetConsoleScreenBufferInfo(hStdOut, &csbi))
-     {
-          //To mask out all but the background attribute, and to add the color
-          wColor = (csbi.wAttributes & 0xF0) + (ForgC & 0x0F);
-          SetConsoleTextAttribute(hStdOut, wColor);
-     }
-     return;
-}
-
-int arrow(int max)
-{
-    int arw;
-    int what_to_do=0;
-    while (1)
+    char name[100];
+    char token[100];
+    char channel[100];
+}users[1000];
+int socket_maker(int server_socket){
+    struct sockaddr_in client;
+        if ((listen(server_socket, 5)) != 0)
     {
-        arw=getch();
-        if (arw==80 && what_to_do<max)
-        {
-            what_to_do++;
-            //printf("Down ");
-        }
-        if (arw==72 && what_to_do>1)
-        {
-            what_to_do--;
-            //printf("Up ");
-        }
-        if (max==2)
-        {
-            system("cls");
-            if (what_to_do==1)
-            {
-                printf("Account Menu\n");
-                SetColor(4);
-                printf("1: Register\n");
-                SetColor(3);
-                printf("2: Login\n");
-            }
-            if (what_to_do==2)
-            {
-                printf("Account Menu\n");
-                printf("1: Register\n");
-                SetColor(4);
-                printf("2: Login\n");
-                SetColor(3);
-            }
-        }
-        if (max==3)
-        {
-            system("cls");
-            if (what_to_do==1)
-            {
-                SetColor(4);
-                printf("1: Create Channel\n");
-                SetColor(3);
-                printf("2: Join Channel\n");
-                printf("3: Logout\n");
-            }
-            if (what_to_do==2)
-            {
-                printf("1: Create Channel\n");
-                SetColor(4);
-                printf("2: Join Channel\n");
-                SetColor(3);
-                printf("3: Logout\n");
-            }
-            if (what_to_do==3)
-            {
-                printf("1: Create Channel\n");
-                printf("2: Join Channel\n");
-                SetColor(4);
-                printf("3: Logout\n");
-                SetColor(3);
-            }
-        }
-        if (max==4)
-        {
-            system("cls");
-            if (what_to_do==1)
-            {
-                SetColor(4);
-                printf("1: Send Message\n");
-                SetColor(3);
-                printf("2: Refresh\n");
-                printf("3: Channel Members\n");
-                printf("4: Leave Channel\n");
-            }
-            if (what_to_do==2)
-            {
-                printf("1: Send Message\n");
-                SetColor(4);
-                printf("2: Refresh\n");
-                SetColor(3);
-                printf("3: Channel Members\n");
-                printf("4: Leave Channel\n");
-            }
-            if (what_to_do==3)
-            {
-                printf("1: Send Message\n");
-                printf("2: Refresh\n");
-                SetColor(4);
-                printf("3: Channel Members\n");
-                SetColor(3);
-                printf("4: Leave Channel\n");
-            }
-            if (what_to_do==4)
-            {
-                printf("1: Send Message\n");
-                printf("2: Refresh\n");
-                printf("3: Channel Members\n");
-                SetColor(4);
-                printf("4: Leave Channel\n");
-                SetColor(3);
-            }
-        }
-        if (arw==13) break;
+        printf("Listen failed...\n");
+        exit(0);
     }
-    printf("\n");
-    return what_to_do;
+    else
+        printf("Server listening..\n");
+
+    // Accept the data packet from client and verify
+    int len = sizeof(client);
+    int client_socket = accept(server_socket, (SA *)&client, &len);
+    if (client_socket < 0)
+    {
+        printf("Server accceptance failed...\n");
+        exit(0);
+    }
+    else{
+        printf("Server acccepted the client..\n");
+
+    // Function for chatting between client and server
+    return client_socket;
+    }
 }
 
-int sock_create()
+void recvreq (int server_socket)
 {
-	int client_socket, server_socket;
-	struct sockaddr_in servaddr, cli;
+    int socket;
+    socket = socket_maker(server_socket);
+    recv(socket , req , 1000 , 0);
+    if (strncmp(req , "register " , 9)==0) register_func();
+    if (strncmp(req , "login ", 6)==0) login_func();
+    if (strncmp(req , "logout ", 7)==0) logout_func();
+    if (strncmp(req , "create ", 7)==0) create_channel_func();
+    if (strncmp(req , "join ", 5)==0) join_channel_func();
+    if (strncmp(req , "send ", 5)==0) send_message_func();
+    if (strncmp(req , "channel ", 8)==0) channel_memebers_func();
+    if (strncmp(req , "refresh ", 8)==0) refresh_func();
+    if (strncmp(req , "leave ", 6)==0) leave_channel_func();
+    printf("%s\n",res); //respond
+    send(socket , res , 1000 , 0);
+    closesocket(socket);
+}
 
-	WORD wVersionRequested;
+void token_creator(char name[])
+{
+    srand(time(NULL));
+    for (int j=0 ; j<32 ; j++)
+    {
+        int k;
+        k = rand()%3;
+        if (k==2) users[i].token[j] = 97 + (rand()%26);
+        if (k==1) users[i].token[j] = 65 + (rand()%26);
+        if (k==0) users[i].token[j] = 48 + (rand()%10);
+    }
+}
+
+void register_func()
+{
+    char name[100];
+    char pass[100];
+    char htgt[100]; //how to get there in file
+    sscanf(req , "%*s%s%s" , name , pass);
+    int name_size; //this is for deleting "," in the end of name
+    //name[strlen(name)-1]='\0';
+    //printf("%s\n",name);
+    mkdir("Resources");
+    mkdir("Resources/Users");
+    mkdir("Resources/Channels");
+    strcpy(htgt , "Resources/Users/");
+    strcat(htgt , name);
+    strcat(htgt , ".json");
+    FILE* user;
+    if ((user = fopen(htgt, "r"))==NULL)
+    {
+        user = fopen(htgt, "w");
+        cJSON* client = cJSON_CreateObject();
+        cJSON_AddStringToObject(client , "username" , name);
+        cJSON_AddStringToObject(client , "password" , pass);
+        char* jsonclient = cJSON_PrintUnformatted(client);
+        fprintf(user , "%s" , jsonclient);
+        cJSON* success = cJSON_CreateObject();
+        cJSON_AddStringToObject(success , "type" , "Successful");
+        cJSON_AddStringToObject(success , "content" , "");
+        res = cJSON_PrintUnformatted(success); //respond
+
+        fclose(user);
+    }
+    else
+    {
+        cJSON* error = cJSON_CreateObject();
+        cJSON_AddStringToObject(error , "type" , "Error");
+        cJSON_AddStringToObject(error , "content" , "This username has been alredy taken");
+        res = cJSON_PrintUnformatted(error); //respond
+    }
+}
+
+void login_func()
+{
+    char name[100];
+    char pass[100];
+    char pass_check[100];
+    char htgt[100]; //how to get there in file
+    sscanf(req , "%*s%s%s" , name , pass);
+    //mkdir("Resources");
+    //mkdir("Resources/Users");
+    //mkdir("Resources/Channels");
+    strcpy(htgt , "Resources/Users/");
+    strcat(htgt , name);
+    strcat(htgt , ".json");
+    FILE* user;
+    if ((user = fopen(htgt, "r"))==NULL)
+    {
+        cJSON* error = cJSON_CreateObject();
+        cJSON_AddStringToObject(error , "type" , "Error");
+        cJSON_AddStringToObject(error , "content" , "This username dosen't exist");
+        res = cJSON_PrintUnformatted(error);
+    }
+    else
+    {
+        fscanf(user , "%s" , pass_check);   //pass_check=correct pass & pass=pass that client sent
+        fclose(user);
+        cJSON* pass_check_json = cJSON_Parse(pass_check);
+        cJSON* json_pass = cJSON_GetObjectItem(pass_check_json , "password");
+        memset(pass_check , 0 , sizeof(pass_check));
+        strcpy(pass_check , json_pass -> valuestring);
+        if (strcmp(pass_check , pass)==0)
+        {
+            i++;
+            token_creator(name);
+            //printf("%s\n",users[i].token);
+            strcpy(users[i].name , name);
+            cJSON* success = cJSON_CreateObject();
+            cJSON_AddStringToObject(success , "type" , "AuthToken");
+            cJSON_AddStringToObject(success , "content" , users[i].token);
+            res = cJSON_PrintUnformatted(success); //respond
+        }
+        else
+        {
+            cJSON* error = cJSON_CreateObject();
+            cJSON_AddStringToObject(error , "type" , "Error");
+            cJSON_AddStringToObject(error , "content" , "Password is not correct");
+            res = cJSON_PrintUnformatted(error);
+        }
+    }
+}
+
+void logout_func()
+{
+    char logout_token[100];
+    sscanf(req , "%*s%s",logout_token);
+    for (int j=0 ; j<=i ; j++)
+    {
+        if (strcmp(users[j].token , logout_token)==0)
+        {
+            memset(users[j].name , 0 , sizeof(users[j].name));
+            memset(users[j].token , 0 , sizeof(users[j].token));
+            memset(users[j].channel , 0 , sizeof(users[j].channel));
+        }
+    }
+    cJSON* success = cJSON_CreateObject();
+    cJSON_AddStringToObject(success , "type" , "Successful");
+    cJSON_AddStringToObject(success , "content" , "");
+    res = cJSON_PrintUnformatted(success); //respond
+}
+
+void create_channel_func()
+{
+    char token_check[100];
+    char channel_name[100];
+    char htgt[100]; // file way
+    sscanf(req , "%*s%*s%s%s" , channel_name , token_check);
+    //printf("%s\n",token_check);
+    int index;
+    int check=0;
+    for (int j=0 ; j<=i ; j++)
+    {
+        if (strncmp(users[j].token , token_check , 32)==0)
+        {
+            check=1;
+            index=j;
+            break;
+        }
+    }
+    if (check==1) // checking that token is correct or not
+    {
+        strcpy(htgt , "Resources/Channels/");
+        strcat(htgt , channel_name);
+        strcat(htgt , ".json");
+        FILE* user;
+        if ((user=fopen(htgt , "r"))==NULL)
+        {
+            fclose(user);
+            user=fopen(htgt , "w");
+            cJSON* bracket = cJSON_CreateObject();
+            cJSON* inbracket = cJSON_CreateArray();
+            cJSON* a;
+            cJSON_AddItemToArray(inbracket , a=cJSON_CreateObject());
+            char name[100];
+            strcpy(name , users[index].name);
+            strcat(name , " Created -");
+            strcat(name , channel_name);
+            strcat(name , "-");
+            strcpy(users[index].channel , channel_name);
+            cJSON_AddStringToObject(a , "sender" , "Server");
+            cJSON_AddStringToObject(a , "content" , name);
+            cJSON_AddItemToObject(bracket , "messages" , inbracket);
+            char* jsonchannel = cJSON_PrintUnformatted(bracket);
+            //printf("%s\n",jsonchannel);
+            fprintf(user ,"%s%c" , jsonchannel , '\n');
+            cJSON* success=cJSON_CreateObject();
+            cJSON_AddStringToObject(success , "type" , "Successful");
+            cJSON_AddStringToObject(success , "content" , "");
+            res = cJSON_PrintUnformatted(success);
+            fclose(user);
+        }
+        else
+        {
+            cJSON* error = cJSON_CreateObject();
+            cJSON_AddStringToObject(error , "type" , "Error");
+            cJSON_AddStringToObject(error , "content" , "This channel name has been already token");
+            res = cJSON_PrintUnformatted(error);
+        }
+    }
+    else
+    {
+            cJSON* error = cJSON_CreateObject();
+            cJSON_AddStringToObject(error , "type" , "Error");
+            cJSON_AddStringToObject(error , "content" , "Token is not correct");
+            res = cJSON_PrintUnformatted(error);
+    }
+}
+
+void join_channel_func()
+{
+    char token_check[100];
+    char channel_name[100];
+    char htgt[100]; // file way
+    sscanf(req , "%*s%*s%s%s" , channel_name , token_check);
+    int index;
+    int check=0;
+    for (int j=0 ; j<=i ; j++)
+    {
+        if (strncmp(users[j].token , token_check , 32)==0)
+        {
+            check=1;
+            index=j;
+            break;
+        }
+    }
+    if (check==1)
+    {
+        strcpy(htgt , "Resources/Channels/");
+        strcat(htgt , channel_name);
+        strcat(htgt , ".json");
+        FILE* user;
+        if ((user=fopen(htgt , "r"))!=NULL)
+        {
+            char channel_content[10000];
+            fscanf(user , "%[^\n]s" , channel_content);
+            fclose(user);
+            user=fopen(htgt , "w");
+            cJSON* json_content = cJSON_Parse(channel_content);
+            cJSON* json_message = cJSON_GetObjectItem(json_content , "messages");
+            cJSON* a;
+            cJSON_AddItemToArray(json_message , a=cJSON_CreateObject());
+            char name[100];
+            strcpy(name , users[index].name);
+            strcat(name , " Joined -");
+            strcat(name , channel_name);
+            strcat(name , "-");
+            strcpy(users[index].channel , channel_name);
+            cJSON_AddStringToObject(a , "sender" , "Server");
+            cJSON_AddStringToObject(a , "content" , name);
+            cJSON* bracket= cJSON_CreateObject();
+            cJSON_AddItemToObject(bracket , "messages" , json_message);
+            char* json_channel = cJSON_PrintUnformatted(bracket);
+            //printf("%s\n" , jsonchannel);
+            fprintf(user , "%s" , json_channel);
+            cJSON* success=cJSON_CreateObject();
+            cJSON_AddStringToObject(success , "type" , "Successful");
+            cJSON_AddStringToObject(success , "content" , "");
+            res = cJSON_PrintUnformatted(success);
+            fclose(user);
+        }
+        else
+        {
+            cJSON* error = cJSON_CreateObject();
+            cJSON_AddStringToObject(error , "type" , "Error");
+            cJSON_AddStringToObject(error , "content" , "This channel dosen't exist");
+            res = cJSON_PrintUnformatted(error);
+        }
+    }
+    else
+    {
+        cJSON* error = cJSON_CreateObject();
+        cJSON_AddStringToObject(error , "type" , "Error");
+        cJSON_AddStringToObject(error , "content" , "Token is not correct");
+        res = cJSON_PrintUnformatted(error);
+    }
+}
+
+void send_message_func()
+{
+    char token_check[100];
+    char message[100];
+    char htgt[100]; // file way
+    int k=0;
+    sscanf(req , "%*s%*c%[^,]s" , message , token_check);
+    for (int i=strlen(req)-33 ; i<strlen(req)-1 ; i++)
+    {
+        token_check[k]=req[i];
+        k++;
+    }
+    token_check[k]=0;
+    //printf("--%s------%s-----%s--------\n",req,message,token_check);
+    int index;
+    int check=0;
+    for (int j=0 ; j<=i ; j++)
+    {
+        if (strncmp(users[j].token , token_check , 32)==0)
+        {
+            check=1;
+            index=j;
+            break;
+        }
+    }
+    if (check==1)
+    {
+        strcpy(htgt , "Resources/Channels/");
+        strcat(htgt , users[index].channel);
+        strcat(htgt , ".json");
+        FILE* user;
+        user=fopen(htgt , "r");
+        char channel_content[10000];
+        fscanf(user , "%[^\n]s" , channel_content);
+        fclose(user);
+        user=fopen(htgt , "w");
+        cJSON* json_content=cJSON_Parse(channel_content);
+        cJSON* json_message=cJSON_GetObjectItem(json_content , "messages");
+        cJSON* a;
+        cJSON_AddItemToArray(json_message , a=cJSON_CreateObject());
+        char name[100];
+        strcpy(name , users[index].name);
+        cJSON_AddStringToObject(a , "sender" , name);
+        cJSON_AddStringToObject(a , "content" , message);
+        cJSON* bracket= cJSON_CreateObject();;
+        cJSON_AddItemToObject(bracket , "messages" , json_message);
+        char* json_channel = cJSON_PrintUnformatted(bracket);
+        printf("%s\n" , json_channel);
+        fprintf(user , "%s" , json_channel);
+        cJSON* success=cJSON_CreateObject();
+        cJSON_AddStringToObject(success , "type" , "Successful");
+        cJSON_AddStringToObject(success , "content" , "");
+        res = cJSON_PrintUnformatted(success);
+        fclose(user);
+    }
+    else
+    {
+        cJSON* error = cJSON_CreateObject();
+        cJSON_AddStringToObject(error , "type" , "Error");
+        cJSON_AddStringToObject(error , "content" , "Token is not correct");
+        res = cJSON_PrintUnformatted(error);
+    }
+}
+
+void channel_memebers_func()
+{
+    char token_check[100];
+    char htgt[100]; //file way
+    sscanf(req , "%*s%*s%s" , token_check);
+    int index;
+    int check=0;
+    for (int j=0 ; j<=i ; j++)
+    {
+        if (strncmp(users[j].token , token_check , 32)==0)
+        {
+            check=1;
+            index=j;
+            break;
+        }
+    }
+    if (check==1)
+    {
+        cJSON* bracket=cJSON_CreateObject();
+        cJSON* member_list=cJSON_CreateArray();
+        for (int j=0;j<=i;j++)
+        {
+            if(strcmp(users[j].channel , users[index].channel)==0)
+            cJSON_AddItemToArray(member_list , cJSON_CreateString(users[j].name));
+        }
+        cJSON_AddStringToObject(bracket , "type" , "List");
+        cJSON_AddItemToObject(bracket , "content" , member_list);
+        res=cJSON_PrintUnformatted(bracket);
+    }
+    else
+    {
+        cJSON* error=cJSON_CreateObject();
+        cJSON_AddStringToObject(error , "type" , "Error");
+        cJSON_AddStringToObject(error , "content" , "Token is not correct");
+        res=cJSON_PrintUnformatted(error);
+    }
+}
+
+void refresh_func()
+{
+    char token_check[100];
+    char htgt[100]; //file way
+    sscanf(req , "%*s%s" , token_check);
+    int index;
+    int check=0;
+    for (int j=0 ; j<=i ; j++)
+    {
+        if (strncmp(users[j].token , token_check , 32)==0)
+        {
+            check=1;
+            index=j;
+            break;
+        }
+    }
+    if (check==1)
+    {
+        strcpy(htgt , "Resources/Channels/");
+        strcat(htgt , users[index].channel);
+        strcat(htgt , ".json");
+        FILE* user;
+        char channel_content[10000];
+        memset(channel_content , 0 , sizeof(channel_content));
+        user=fopen(htgt , "r");
+        fscanf(user , "%[^\n]s" , channel_content);
+        fclose(user);
+        cJSON* json_channel_content=cJSON_CreateArray();
+        cJSON* saver=cJSON_Parse(channel_content);
+        cJSON* inbracket=cJSON_GetObjectItem(saver , "messages");
+        for (int j=previous_arraaynum ; j<cJSON_GetArraySize(inbracket) ; j++)
+        {
+            if (j==previous_arraaynum)
+            cJSON_AddItemToArray(json_channel_content , cJSON_GetArrayItem(inbracket , j));
+        }
+        previous_arraaynum=cJSON_GetArraySize(inbracket);
+        cJSON* bracket=cJSON_CreateObject();
+        cJSON_AddStringToObject(bracket , "type" , "List");
+        cJSON_AddItemToObject(bracket , "content" , json_channel_content);
+        res=cJSON_PrintUnformatted(bracket);
+    }
+    else
+    {
+        cJSON* error=cJSON_CreateObject();
+        cJSON_AddStringToObject(error , "type" , "Error");
+        cJSON_AddStringToObject(error , "content" , "Token is not correct");
+        res=cJSON_PrintUnformatted(error);
+    }
+}
+
+void leave_channel_func()
+{
+    char token_check[100];
+    char htgt[100]; //file way
+    sscanf(req , "%*s%s" , token_check);
+    int index;
+    int check=0;
+    for (int j=0 ; j<=i ; j++)
+    {
+        if (strncmp(users[j].token , token_check , 32)==0)
+        {
+            check=1;
+            index=j;
+            break;
+        }
+    }
+    if (check==1)
+    {
+        strcpy(htgt , "Resources/Channels/");
+        strcat(htgt , users[index].channel);
+        strcat(htgt , ".json");
+        FILE* user;
+        user=fopen(htgt , "r");
+        char channel_content[10000];
+        fscanf(user , "%[^\n]s" , channel_content);
+        fclose(user);
+        user=fopen(htgt , "w");
+        cJSON* json_content = cJSON_Parse(channel_content);
+        cJSON* json_message = cJSON_GetObjectItem(json_content,"messages");
+        cJSON* a;
+        cJSON_AddItemToArray(json_message , a=cJSON_CreateObject());
+        char name[1000];
+        strcpy(name , users[index].name);
+        strcat(name , " Left -");
+        strcat(name , users[index].channel);
+        strcat(name,"-");
+        cJSON_AddStringToObject(a , "sender" , "Server");
+        cJSON_AddStringToObject(a , "content" , name);
+        cJSON* bracket= cJSON_CreateObject();
+        cJSON_AddItemToObject(bracket , "messages" , json_message);
+        char* json_channel = cJSON_PrintUnformatted(bracket);
+        fprintf(user , "%s" , json_channel);
+        cJSON* success=cJSON_CreateObject();
+        cJSON_AddStringToObject(success , "type" , "Successful");
+        cJSON_AddStringToObject(success , "content" , "");
+        res=cJSON_PrintUnformatted(success);
+        memset(users[index].channel , 0 , sizeof(users[index].channel));
+        fclose(user);
+    }
+    else
+    {
+        cJSON* error = cJSON_CreateObject();
+        cJSON_AddStringToObject(error , "type" , "Error");
+        cJSON_AddStringToObject(error , "content" , "Token is not correct");
+        res = cJSON_PrintUnformatted(error);
+    }
+}
+
+int main()
+{
+    int server_socket, client_socket;
+    struct sockaddr_in server;
+    WORD wVersionRequested;
     WSADATA wsaData;
     int err;
 
@@ -205,282 +552,32 @@ int sock_create()
         return 1;
     }
 
-	// Create and verify socket
-	client_socket = socket(AF_INET, SOCK_STREAM, 0);
-	if (client_socket == -1) {
-		printf("Socket creation failed...\n");
-		exit(0);
-	}
-	else
-		printf("Socket successfully created..\n");
+    // Create and verify socket
+    server_socket = socket(AF_INET, SOCK_STREAM, 6);
+	if (server_socket == INVALID_SOCKET)
+        wprintf(L"socket function failed with error = %d\n", WSAGetLastError() );
+    else
+        printf("Socket successfully created..\n");
 
-	// Assign IP and port
-	memset(&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-	servaddr.sin_port = htons(PORT);
+    // Assign IP and port
+    memset(&server, 0, sizeof(server));
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = htonl(INADDR_ANY);
+    server.sin_port = htons(PORT);
 
-	// Connect the client socket to server socket
-	if (connect(client_socket, (SA*)&servaddr, sizeof(servaddr)) != 0) {
-		printf("Connection to the server failed...\n");
-		exit(0);
-	}
-	else{
-		printf("Successfully connected to the server..\n");
-        return client_socket;
-	// Function for chat
-    }
-
-	// Close the socket
-	return 0;
-}
-
-
-int main()
-{
-    account_menu ();
-}
-
-void sendreq( char req[] , char reqtype[] , char reqtoken[] )
-{
-    int socket;
-    char req2[1000];
-    strcpy(req2 , req); // this char* used to determine channel member request and refresh request
-    socket = sock_create();
-    send(socket , req , 1000 , 0);
-    memset(req , 0 , sizeof(req));
-    recv(socket , req , 1000 , 0);
-    cJSON* jsonrec = cJSON_Parse(req);
-    cJSON* jsontype = cJSON_GetObjectItem(jsonrec , "type");
-    cJSON* jsoncontent = cJSON_GetObjectItem(jsonrec, "content");
-    strcpy(reqtype , jsontype -> valuestring);
-    if (reqtype[0]!='L') // cheking that request type is list or not
+    // Bind newly created socket to given IP and verify
+    if ((bind(server_socket, (SA *)&server, sizeof(server))) != 0)
     {
-        strcpy(reqtoken , jsoncontent -> valuestring);
-    }
-    int size = cJSON_GetArraySize(jsoncontent);
-    if (reqtype[0]=='L')
-    {
-        if (req2[0]=='c')
-        {
-            for (int i=0 ; i<size ; i++)
-            {
-                cJSON* test = cJSON_GetArrayItem(jsoncontent,i);
-                printf ("%s\n", test->valuestring);
-            }
-        }
-        else
-        {
-            for (int i=0 ; i<size ; i++)
-            {
-                cJSON *listget = cJSON_GetArrayItem(jsoncontent,i);
-                cJSON* listsender = cJSON_GetObjectItem(listget,"sender");
-                cJSON* listcontent = cJSON_GetObjectItem(listget,"content");
-                printf("%s: %s\n", listsender -> valuestring , listcontent -> valuestring );
-            }
-        }
-    }
-}
-
-void account_menu ()
-{
-    system("COLOR F3");
-    memset(req , 0 , sizeof(req));
-    printf("Account Menu\n");
-    printf("1: Register\n");
-    printf("2: Login\n");
-    int WhatToDo;
-    //scanf("%d", &WhatToDo);
-    WhatToDo=arrow(2);
-    if (WhatToDo==1)
-    {
-        getchar();
-        printf("Please Enter Your Username\n");
-        scanf("%[^\n]s", username);
-        getchar();
-        printf("Please Enter Your Password\n");
-        scanf("%[^\n]s", password);
-        strcat(req , "register ");
-        strcat(req , username);
-        strcat(req , ", ");
-        strcat(req , password);
-        strcat(req , "\n");
-        sendreq(req , reqtype , reqtoken);
-        memset(reqtoken , 0 , sizeof(reqtoken));
-        if (reqtype[0]=='E')
-        {
-            printf("This userename has been already taken, Please try again\n");
-        }
-        //system("cls");
-         return account_menu ();
+        printf("Socket binding failed...\n");
+        exit(0);
     }
     else
-    {
-        getchar();
-        printf("Please Enter Your Username\n");
-        scanf("%[^\n]s", username);
-        printf("Please Enter Your Password\n");
-        getchar();
-        scanf("%[^\n]s", password);
-        strcat(req , "login ");
-        strcat(req , username);
-        strcat(req , ", ");
-        strcat(req , password);
-        strcat(req , "\n");
-        sendreq(req , reqtype , reqtoken);
-        memset(sendreqtoken , 0 , sizeof(sendreqtoken));
-        int i=0;
-        while(reqtoken[i]!='\0')
-        {
-            sendreqtoken[i] = reqtoken[i]; // here we save token that server sent in sendreqtoken
-            i++;
-        }
-        if (reqtype[0]=='E') //this error appears when the username does not exist
-        {
-            printf("%s\n",reqtoken);
-            account_menu ();
-        }
-        else return main_menu();
-        //system("cls");
-    }
-}
+        printf("Socket successfully bound..\n");
 
-void main_menu()
-{
-    memset(req , 0 , sizeof(req));
-    memset(reqtoken , 0 , sizeof(reqtoken));
-    //set a theme for chat application
-    //printf("Please select a color theme\n");
-    //scanf("%d", &set_color);
-    //SetColor(set_color);
-    //system("cls");
-    printf("1: Create Channel\n");
-    printf("2: Join Channel\n");
-    printf("3: Logout\n");
-    int WhatToDo;
-    //scanf("%d", &WhatToDo);
-    WhatToDo=arrow(3);
-    int i=0;
-    while(sendreqtoken[i]!='\0')
-    {
-        reqtoken[i] = sendreqtoken[i];
-        i++;
-    }
-    if (WhatToDo==1)
-    {
-        printf("Please enter your channel's name\n");
-        getchar();
-        scanf("%[^\n]s", channel_name);
-        strcat(req , "create channel ");
-        strcat(req , channel_name);
-        strcat(req , ", ");
-        strcat(req , reqtoken);
-        strcat(req , "\n");
-        //printf("%s\n",reqtoken);
-        sendreq(req , reqtype , reqtoken);
-        if (reqtype[0]=='S')
-        {
-            printf("Channel has been successfuly created\n");
-            chat_menu();
-        }
-        else
-        {
-            printf("This channel's name has been already taken, Please try again\n");
-            main_menu();
-        }
-        //system("cls");
-    }
-    if (WhatToDo==2)
-    {
-        printf("Please enter channel's name\n");
-        getchar();
-        scanf("%[^\n]s", channel_name);
-        strcat(req , "join channel ");
-        strcat(req , channel_name);
-        strcat(req , ", ");
-        strcat(req , reqtoken);
-        strcat(req , "\n");
-        sendreq(req , reqtype , reqtoken);
-        if (reqtype[0]=='S')
-        {
-            printf("You joined the channel successfuly\n");
-            chat_menu();
-        }
-        else
-        {
-            printf("This channel's name does not exist, Please try again\n");
-            main_menu();
-        }
-        //system("cls");
-    }
-    if (WhatToDo==3)
-    {
-        strcat(req , "logout ");
-        strcat(req , reqtoken);
-        strcat(req , "\n");
-        sendreq(req , reqtype , reqtoken);
-        //system("cls");
-        account_menu ();
-    }
-}
-
-void chat_menu()
-{
-    memset(req , 0 , sizeof(req));
-    memset(reqtoken , 0 , sizeof(reqtoken));
-    printf("1: Send Message\n");
-    printf("2: Refresh\n");
-    printf("3: Channel Members\n");
-    printf("4: Leave Channel\n");
-    int WhatToDo;
-    //scanf("%d", &WhatToDo);
-    WhatToDo=arrow(4);
-    int i=0;
-    while(sendreqtoken[i]!='\0')
-    {
-        reqtoken[i] = sendreqtoken[i];
-        i++;
-    }
-    if (WhatToDo==1)
-    {
-        memset(message , 0 , sizeof(message));
-        getchar();
-        scanf("%[^\n]s", message);
-        strcat(req, "send ");
-        strcat(req, message);
-        strcat(req, ", ");
-        strcat(req, reqtoken);
-        strcat(req, "\n");
-        sendreq(req , reqtype , reqtoken);
-        chat_menu();
+    // Now server is ready to listen and verify
+    while (1){
+        memset(req,0,sizeof(req));
+        recvreq(server_socket);
     }
 
-    if (WhatToDo==2)
-    {
-        strcat(req, "refresh ");
-        strcat(req, reqtoken);
-        strcat(req, "\n");
-        sendreq(req , reqtype , reqtoken);
-       // printf("%s\n", reqtoken);
-        chat_menu();
-    }
-
-    if (WhatToDo==3)
-    {
-        strcat(req, "channel members ");
-        strcat(req, reqtoken);
-        strcat(req, "\n");
-        sendreq(req , reqtype , reqtoken);
-        //printf("%s\n", reqtoken);
-        chat_menu();
-    }
-
-    if (WhatToDo==4)
-    {
-        strcat(req, "leave ");
-        strcat(req, reqtoken);
-        strcat(req, "\n");
-        sendreq(req , reqtype , reqtoken);
-        main_menu();
-    }
 }
